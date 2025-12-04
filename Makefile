@@ -8,7 +8,7 @@ install:
 
 # Executar o jogo
 run:
-	uv run cv_rhythm_game.py
+	uv run main.py
 
 # Limpar arquivos temporários (se houver)
 clean:
