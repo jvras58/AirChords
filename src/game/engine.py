@@ -6,6 +6,7 @@ A música pausa no início de cada acorde e só avança quando o gesto é aceito
 """
 
 import pygame
+import pygame.freetype
 import cv2
 import time
 import math
@@ -83,6 +84,7 @@ class MusicGame:
         self.font_big = None
         self.font_medium = None
         self.font_small = None
+        self.emoji_font = None  # Fonte especial para emojis
 
     def carregar_musica(self):
         musica_path = os.path.join(get_assets_path(), "musica.mp3")
@@ -285,31 +287,57 @@ class MusicGame:
 
     def _draw_intro_screen(self, cx, cy):
         """Tela inicial do jogo."""
+        # Inicializar emoji_font se necessário
+        if self.emoji_font is None:
+            try:
+                self.emoji_font = pygame.freetype.SysFont("Segoe UI Emoji", 60)
+            except:
+                self.emoji_font = pygame.freetype.SysFont("Arial", 60)
+        
         # Título
         title = self.font_big.render("CHORD HERO AI", True, (0, 200, 255))
-        title_rect = title.get_rect(center=(cx, cy - 100))
+        title_rect = title.get_rect(center=(cx, cy - 120))
         self.screen.blit(title, title_rect)
         
         # Subtítulo
         subtitle = self.font_medium.render("Jogo de Gestos Musicais", True, (255, 255, 255))
-        subtitle_rect = subtitle.get_rect(center=(cx, cy - 30))
+        subtitle_rect = subtitle.get_rect(center=(cx, cy - 50))
         self.screen.blit(subtitle, subtitle_rect)
         
         # Instruções
         instr1 = self.font_small.render("Faça o gesto correto para cada acorde!", True, (200, 200, 200))
-        instr1_rect = instr1.get_rect(center=(cx, cy + 40))
+        instr1_rect = instr1.get_rect(center=(cx, cy + 10))
         self.screen.blit(instr1, instr1_rect)
         
-        # Gestos disponíveis
-        gestos_text = "✋ Mão Aberta  |  ✊ Punho  |  ✌️ Paz  |  👍 Joinha  |  👆 Apontar"
-        gestos = self.font_small.render(gestos_text, True, (150, 200, 255))
-        gestos_rect = gestos.get_rect(center=(cx, cy + 90))
-        self.screen.blit(gestos, gestos_rect)
+        # Gestos disponíveis - usando emojis renderizados com freetype
+        gestos_label = self.font_small.render("Gestos disponíveis:", True, (150, 200, 255))
+        gestos_label_rect = gestos_label.get_rect(center=(cx, cy + 50))
+        self.screen.blit(gestos_label, gestos_label_rect)
+        
+        # Desenhar emojis dos gestos em linha
+        emojis = ["✋", "✊", "✌️", "👍", "👆"]
+        nomes = ["Mão", "Punho", "Paz", "Joinha", "Apontar"]
+        icon_spacing = 130
+        start_x = cx - (len(emojis) - 1) * icon_spacing // 2
+        icon_y = cy + 100
+        
+        for i, (emoji, nome) in enumerate(zip(emojis, nomes)):
+            icon_x = start_x + i * icon_spacing
+            
+            # Emoji
+            emoji_surf, emoji_rect = self.emoji_font.render(emoji, (150, 200, 255))
+            emoji_rect.center = (icon_x, icon_y)
+            self.screen.blit(emoji_surf, emoji_rect)
+            
+            # Nome abaixo
+            nome_text = self.font_small.render(nome, True, (120, 160, 200))
+            nome_rect = nome_text.get_rect(center=(icon_x, icon_y + 45))
+            self.screen.blit(nome_text, nome_rect)
         
         # Botão de start (pulsando)
         pulse = math.sin(time.time() * 4) * 10
         start_text = self.font_medium.render("PRESSIONE ESPAÇO PARA INICIAR", True, (0, 255, 100))
-        start_rect = start_text.get_rect(center=(cx, cy + 180 + pulse))
+        start_rect = start_text.get_rect(center=(cx, cy + 200 + pulse))
         self.screen.blit(start_text, start_rect)
 
     def _draw_waiting_screen(self, cx, cy, landmarks):
@@ -358,10 +386,17 @@ class MusicGame:
         pygame.draw.circle(self.screen, cor_circulo, (cx, cy + 30), raio, 5)
         
         # Emoji do gesto esperado (grande, no centro)
-        emoji_font = pygame.font.SysFont("Segoe UI Emoji", 80)
-        emoji_text = emoji_font.render(expected_emoji, True, (255, 255, 255))
-        emoji_rect = emoji_text.get_rect(center=(cx, cy + 30))
-        self.screen.blit(emoji_text, emoji_rect)
+        # Usar freetype para melhor suporte a Unicode/emojis
+        if self.emoji_font is None:
+            try:
+                # Tentar carregar fonte com suporte a emoji
+                self.emoji_font = pygame.freetype.SysFont("Segoe UI Emoji", 60)
+            except:
+                self.emoji_font = pygame.freetype.SysFont("Arial", 60)
+        
+        emoji_surface, emoji_rect = self.emoji_font.render(expected_emoji, (255, 255, 255))
+        emoji_rect.center = (cx, cy + 30)
+        self.screen.blit(emoji_surface, emoji_rect)
         
         # Nome do gesto esperado
         gesto_name = self.font_small.render(expected_name, True, (200, 200, 200))
@@ -370,8 +405,19 @@ class MusicGame:
         
         # Mostrar gesto detectado (canto inferior)
         if landmarks is not None:
-            detected_text = self.font_small.render(f"Seu gesto: {detected_emoji}", True, (150, 150, 150))
-            self.screen.blit(detected_text, (20, self.HEIGHT - 60))
+            # Label
+            label_text = self.font_small.render("Seu gesto:", True, (150, 150, 150))
+            self.screen.blit(label_text, (20, self.HEIGHT - 80))
+            
+            # Emoji do gesto detectado
+            if self.emoji_font:
+                emoji_surf, emoji_r = self.emoji_font.render(detected_emoji, (200, 200, 200))
+                self.screen.blit(emoji_surf, (20, self.HEIGHT - 55))
+                
+                # Nome do gesto
+                detected_name = self.gesture_recognizer.get_gesture_name(detected_gesture)
+                name_text = self.font_small.render(detected_name, True, (150, 150, 150))
+                self.screen.blit(name_text, (80, self.HEIGHT - 50))
             
             # Barra de confiança
             bar_width = 150
@@ -450,9 +496,15 @@ class MusicGame:
             next_gesture = self.gesture_recognizer.get_expected_gesture(next_name)
             next_emoji = self.gesture_recognizer.get_gesture_emoji(next_gesture)
             
-            next_text = self.font_small.render(f"Próximo: {next_name} {next_emoji}", True, (150, 150, 200))
-            next_rect = next_text.get_rect(center=(cx, cy + 120))
-            self.screen.blit(next_text, next_rect)
+            # Label "Próximo:"
+            next_label = self.font_small.render(f"Próximo: {next_name}", True, (150, 150, 200))
+            next_label_rect = next_label.get_rect(center=(cx - 30, cy + 120))
+            self.screen.blit(next_label, next_label_rect)
+            
+            # Emoji do próximo gesto
+            if self.emoji_font:
+                next_emoji_surf, _ = self.emoji_font.render(next_emoji, (150, 150, 200))
+                self.screen.blit(next_emoji_surf, (cx + 50, cy + 105))
 
     def _draw_finished_screen(self, cx, cy):
         """Tela de fim de jogo."""
