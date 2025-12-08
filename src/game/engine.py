@@ -315,7 +315,7 @@ class MusicGame:
         self.screen.blit(gestos_label, gestos_label_rect)
         
         # Desenhar emojis dos gestos em linha
-        emojis = ["✋", "✊", "✌️", "👍", "👆"]
+        emojis = ["✋", "✊", "✌", "👍", "👆"]  # ✌ sem variation selector para centralizar melhor
         nomes = ["Mão", "Punho", "Paz", "Joinha", "Apontar"]
         icon_spacing = 130
         start_x = cx - (len(emojis) - 1) * icon_spacing // 2
