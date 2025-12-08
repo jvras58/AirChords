@@ -11,16 +11,27 @@ class HandTracker:
         self.last_pinch_time = 0
 
     def process(self, img):
+        """
+        Processa uma imagem e detecta mãos.
+        
+        Returns:
+            Tuple de (imagem_processada, is_pinching, posição_pinch, landmarks)
+            landmarks é uma lista de 21 pontos ou None se não houver mão
+        """
         img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         results = self.hands.process(img_rgb)
         pinched = False
         pos = (0, 0)
+        landmarks = None
 
         if results.multi_hand_landmarks:
             for hand_lms in results.multi_hand_landmarks:
                 self.mp_draw.draw_landmarks(
                     img, hand_lms, self.mp_hands.HAND_CONNECTIONS
                 )
+                
+                # Guardar landmarks para reconhecimento de gestos
+                landmarks = hand_lms.landmark
 
                 h, w, c = img.shape
                 # Pontas dos dedos: 4 (Polegar), 8 (Indicador)
@@ -42,4 +53,4 @@ class HandTracker:
                 else:
                     cv2.circle(img, pos, 10, (0, 255, 255), 2)
 
-        return img, pinched, pos
+        return img, pinched, pos, landmarks
