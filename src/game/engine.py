@@ -366,6 +366,7 @@ class MusicGame:
         
         # Círculo do gesto esperado
         raio = 100
+        centro_y = cy + 30  # Centro Y do círculo
         cor_circulo = (0, 200, 255)  # Azul
         
         # Se está fazendo o gesto correto, mudar cor
@@ -377,13 +378,19 @@ class MusicGame:
                 int(255 - 155 * progress)
             )  # Transição para verde
             
-            # Arco de progresso
-            rect_arc = pygame.Rect(cx - raio - 10, cy - 10 - raio, (raio + 10) * 2, (raio + 10) * 2)
+            # Arco de progresso (centralizado, um pouco maior que o círculo)
+            raio_arco = raio + 15
+            rect_arc = pygame.Rect(
+                cx - raio_arco, 
+                centro_y - raio_arco, 
+                raio_arco * 2, 
+                raio_arco * 2
+            )
             angulo_inicio = math.pi / 2
             angulo_fim = angulo_inicio - (2 * math.pi * progress)
             pygame.draw.arc(self.screen, (0, 255, 100), rect_arc, angulo_fim, angulo_inicio, 8)
         
-        pygame.draw.circle(self.screen, cor_circulo, (cx, cy + 30), raio, 5)
+        pygame.draw.circle(self.screen, cor_circulo, (cx, centro_y), raio, 5)
         
         # Emoji do gesto esperado (grande, no centro)
         # Usar freetype para melhor suporte a Unicode/emojis

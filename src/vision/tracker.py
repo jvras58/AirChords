@@ -4,11 +4,23 @@ import math
 
 
 class HandTracker:
-    def __init__(self):
+    def __init__(self, draw_landmarks=True):
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
         self.mp_draw = mp.solutions.drawing_utils
         self.last_pinch_time = 0
+        self.draw_landmarks = draw_landmarks
+        
+        # Estilo customizado para os landmarks (mais sutil)
+        self.landmark_style = self.mp_draw.DrawingSpec(
+            color=(100, 100, 100),  # Cinza escuro
+            thickness=1,
+            circle_radius=2
+        )
+        self.connection_style = self.mp_draw.DrawingSpec(
+            color=(150, 150, 150),  # Cinza claro
+            thickness=1
+        )
 
     def process(self, img):
         """
@@ -26,9 +38,13 @@ class HandTracker:
 
         if results.multi_hand_landmarks:
             for hand_lms in results.multi_hand_landmarks:
-                self.mp_draw.draw_landmarks(
-                    img, hand_lms, self.mp_hands.HAND_CONNECTIONS
-                )
+                # Desenhar landmarks com estilo customizado (mais sutil)
+                if self.draw_landmarks:
+                    self.mp_draw.draw_landmarks(
+                        img, hand_lms, self.mp_hands.HAND_CONNECTIONS,
+                        self.landmark_style,
+                        self.connection_style
+                    )
                 
                 # Guardar landmarks para reconhecimento de gestos
                 landmarks = hand_lms.landmark
@@ -49,7 +65,6 @@ class HandTracker:
 
                 if dist < 40:  # Limiar de toque
                     pinched = True
-                    # Removido: círculo de pinça não é mais necessário
-                # Removido: círculo amarelo entre dedos
 
         return img, pinched, pos, landmarks
+
