@@ -558,9 +558,9 @@ class MusicGame:
         if self.acorde_atual is None:
             return
         
-        # Configurações do painel
+        # Configurações do painel (posicionado abaixo do HUD)
         panel_x = 15
-        panel_y = 150
+        panel_y = 200  # Movido para baixo para não sobrepor o HUD
         panel_width = 200
         line_height = 22
         
@@ -807,37 +807,42 @@ class MusicGame:
         )
         self.screen.blit(progress_text, (self.WIDTH - progress_text.get_width() - 20, 20))
         
+        # Acorde atual (nome grande no canto superior direito)
+        if self.acorde_atual and self.game_state != GameState.INTRO:
+            chord_name = self.acorde_atual.get("chord_simple_pop", "?")
+            chord_hud = self.font_medium.render(chord_name, True, (0, 200, 255))
+            self.screen.blit(chord_hud, (self.WIDTH - chord_hud.get_width() - 20, 55))
+        
         # Sidebar de configurações (canto superior esquerdo, abaixo do score)
         sidebar_y = 55
         
         # Timbre atual
         timbre_nome = self.timbres[self.timbre_index].value.upper()
-        timbre_text = self.font_small.render(f"♪ {timbre_nome}", True, (100, 200, 255))
+        timbre_text = self.font_small.render(f"[T] {timbre_nome}", True, (100, 200, 255))
         self.screen.blit(timbre_text, (20, sidebar_y))
         
         # Fail Mode status
         if self.fail_mode_enabled:
-            fail_text = self.font_small.render("⏱ FAIL: ON", True, (255, 100, 100))
+            fail_text = self.font_small.render("[M] FAIL: ON", True, (255, 100, 100))
         else:
-            fail_text = self.font_small.render("⏱ FAIL: OFF", True, (100, 255, 100))
+            fail_text = self.font_small.render("[M] FAIL: OFF", True, (100, 255, 100))
         self.screen.blit(fail_text, (20, sidebar_y + 28))
         
         # Audio status - Synth
         synth_status = "ON" if self.synth_enabled else "OFF"
         synth_color = (100, 255, 100) if self.synth_enabled else (150, 150, 150)
-        synth_text = self.font_small.render(f"🎹 Synth: {synth_status}", True, synth_color)
+        synth_text = self.font_small.render(f"[S] Synth: {synth_status}", True, synth_color)
         self.screen.blit(synth_text, (20, sidebar_y + 56))
         
-        # Audio status - Real
-        real_status = "ON" if self.real_audio_enabled else "OFF"
-        real_color = (100, 255, 100) if self.real_audio_enabled else (150, 150, 150)
-        real_text = self.font_small.render(f"🎵 Real: {real_status}", True, real_color)
-        self.screen.blit(real_text, (20, sidebar_y + 84))
-        
-        # Dica de teclas (pequena)
-        hint_font = pygame.font.SysFont("Arial", 16)
-        hint_text = hint_font.render("T=Timbre M=Fail S=Synth R=Real", True, (100, 100, 120))
-        self.screen.blit(hint_text, (20, sidebar_y + 112))
+        # Audio status - Real (removido pois não usamos sample separado)
+        # Mostrar acorde esperado com gesto
+        if self.acorde_atual and self.game_state == GameState.WAITING_FOR_GESTURE:
+            expected_gesture = self.gesture_recognizer.get_expected_gesture(
+                self.acorde_atual.get("chord_simple_pop", "")
+            )
+            expected_name = self.gesture_recognizer.get_gesture_name(expected_gesture)
+            gesture_text = self.font_small.render(f"Gesto: {expected_name}", True, (200, 200, 100))
+            self.screen.blit(gesture_text, (20, sidebar_y + 84))
 
     def _draw_particles(self):
         """Desenha partículas de feedback."""
