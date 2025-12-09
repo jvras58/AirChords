@@ -1,10 +1,24 @@
+"""Rastreador de mãos utilizando MediaPipe.
+
+Detecta mãos em frames de vídeo e extrai landmarks para
+reconhecimento de gestos.
+"""
+
+import math
+
 import cv2
 import mediapipe as mp
-import math
 
 
 class HandTracker:
+    """Rastreador de mãos com detecção de pinch e extração de landmarks."""
+
     def __init__(self, draw_landmarks=True):
+        """Inicializa o rastreador de mãos.
+
+        Args:
+            draw_landmarks: Se True, desenha os landmarks no frame.
+        """
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(max_num_hands=1, min_detection_confidence=0.7)
         self.mp_draw = mp.solutions.drawing_utils

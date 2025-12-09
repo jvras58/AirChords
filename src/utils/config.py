@@ -1,4 +1,10 @@
-# --- DADOS DE EXEMPLO ---
+"""Configurações globais do Chord Hero AI.
+
+Contém constantes de teoria musical, mapeamentos de acordes para gestos,
+e parâmetros de configuração do jogo.
+"""
+
+# Dados padrão de acordes para demonstração
 DADOS_CHORDS_PADRAO = [
     {
         "start": 0.27,
@@ -26,7 +32,7 @@ DADOS_CHORDS_PADRAO = [
     },
 ]
 
-# --- TEORIA MUSICAL ---
+# Frequências base das notas musicais (Hz)
 NOTAS_BASE = {
     "C": 261.63,
     "C#": 277.18,
@@ -47,6 +53,7 @@ NOTAS_BASE = {
     "B": 493.88,
 }
 
+# Intervalos em semitons para cada tipo de acorde
 INTERVALOS = {
     "maj": [0, 4, 7],  # Tônica, Terça Maior, Quinta Justa
     "min": [0, 3, 7],  # Tônica, Terça Menor, Quinta Justa
