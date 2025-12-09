@@ -14,6 +14,7 @@ import numpy as np
 import os
 from enum import Enum
 from src.audio.synthesizer import Sintetizador, Timbre
+from src.audio.chord_sampler import ChordSampler
 from src.vision.tracker import HandTracker
 from src.vision.gesture_recognizer import GestureRecognizer, GestureType, GESTURE_EMOJI, GESTURE_NAMES
 from src.utils.data_loader import load_chords
@@ -23,6 +24,10 @@ from src.utils.config import (
     SHOW_GESTURE_DEBUG,
     FAIL_MODE_ENABLED,
     PENALTY_TIME_SECONDS,
+    SYNTH_ENABLED,
+    REAL_AUDIO_ENABLED,
+    REAL_SAMPLE_DURATION,
+    SYNTH_DURATION,
 )
 
 
@@ -92,6 +97,14 @@ class MusicGame:
         
         # Feedback visual
         self.feedback_visual = []
+        
+        # Controle de áudio (toggles)
+        self.synth_enabled = SYNTH_ENABLED      # Som sintetizado (S para toggle)
+        self.real_audio_enabled = REAL_AUDIO_ENABLED  # Som real (R para toggle)
+        
+        # Sampler de acordes reais
+        musica_path = os.path.join(get_assets_path(), "musica.mp3")
+        self.chord_sampler = ChordSampler(musica_path, REAL_SAMPLE_DURATION)
         
         # Fontes
         self.font_big = None
@@ -170,12 +183,19 @@ class MusicGame:
         if self.acorde_atual is None:
             return
         
-        # Tocar som do acorde
         nome_completo = self.acorde_atual["chord_majmin"]
-        som = self.synth.gerar_acorde(nome_completo)
-        if som:
-            som.set_volume(1.0)
-            som.play()
+        
+        # 1. Tocar som sintetizado (feedback rápido)
+        if self.synth_enabled:
+            som_synth = self.synth.gerar_acorde_curto(nome_completo, SYNTH_DURATION)
+            if som_synth:
+                som_synth.set_volume(0.7)
+                som_synth.play()
+        
+        # 2. Tocar sample real da música (em canal separado, não interfere)
+        if self.real_audio_enabled:
+            start_time = self.acorde_atual.get("start", 0)
+            self.chord_sampler.tocar_sample(start_time, REAL_SAMPLE_DURATION)
         
         # Atualizar score
         self.score += 100
@@ -185,7 +205,7 @@ class MusicGame:
         self.game_state = GameState.GESTURE_CORRECT
         self.transition_start_time = time.time()
         
-        # Despausar música
+        # Despausar música (o sample toca em canal separado, não conflita)
         if self.usando_musica_real and self.music_paused:
             pygame.mixer.music.unpause()
             self.music_paused = False
@@ -796,10 +816,22 @@ class MusicGame:
             fail_text = self.font_small.render("⏱ FAIL: OFF", True, (100, 255, 100))
         self.screen.blit(fail_text, (20, sidebar_y + 28))
         
+        # Audio status - Synth
+        synth_status = "ON" if self.synth_enabled else "OFF"
+        synth_color = (100, 255, 100) if self.synth_enabled else (150, 150, 150)
+        synth_text = self.font_small.render(f"🎹 Synth: {synth_status}", True, synth_color)
+        self.screen.blit(synth_text, (20, sidebar_y + 56))
+        
+        # Audio status - Real
+        real_status = "ON" if self.real_audio_enabled else "OFF"
+        real_color = (100, 255, 100) if self.real_audio_enabled else (150, 150, 150)
+        real_text = self.font_small.render(f"🎵 Real: {real_status}", True, real_color)
+        self.screen.blit(real_text, (20, sidebar_y + 84))
+        
         # Dica de teclas (pequena)
         hint_font = pygame.font.SysFont("Arial", 16)
-        hint_text = hint_font.render("T=Timbre  M=Fail", True, (100, 100, 120))
-        self.screen.blit(hint_text, (20, sidebar_y + 56))
+        hint_text = hint_font.render("T=Timbre M=Fail S=Synth R=Real", True, (100, 100, 120))
+        self.screen.blit(hint_text, (20, sidebar_y + 112))
 
     def _draw_particles(self):
         """Desenha partículas de feedback."""
@@ -852,6 +884,16 @@ class MusicGame:
                         novo_timbre = self.timbres[self.timbre_index]
                         self.synth.set_timbre(novo_timbre)
                         print(f"Timbre: {novo_timbre.value}")
+                    elif event.key == pygame.K_s:
+                        # Toggle som sintetizado
+                        self.synth_enabled = not self.synth_enabled
+                        status = "ATIVADO" if self.synth_enabled else "DESATIVADO"
+                        print(f"Som Sintetizado: {status}")
+                    elif event.key == pygame.K_r:
+                        # Toggle som real (sample da música)
+                        self.real_audio_enabled = not self.real_audio_enabled
+                        status = "ATIVADO" if self.real_audio_enabled else "DESATIVADO"
+                        print(f"Som Real: {status}")
 
             # 2. Captura de vídeo
             ret, frame = self.cap.read()
