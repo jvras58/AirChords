@@ -113,14 +113,22 @@ class MusicGame:
         self.emoji_font = None  # Fonte especial para emojis
 
     def carregar_musica(self):
-        musica_path = os.path.join(get_assets_path(), "musica.mp3")
-        if os.path.exists(musica_path):
-            pygame.mixer.music.load(musica_path)
+        # Preferir WAV (melhor para samples) sobre MP3
+        wav_path = os.path.join(get_assets_path(), "musica.wav")
+        mp3_path = os.path.join(get_assets_path(), "musica.mp3")
+        
+        if os.path.exists(wav_path):
+            pygame.mixer.music.load(wav_path)
+            pygame.mixer.music.set_volume(0.7)
+            self.usando_musica_real = True
+            print(f"Música WAV carregada: {wav_path}")
+        elif os.path.exists(mp3_path):
+            pygame.mixer.music.load(mp3_path)
             pygame.mixer.music.set_volume(0.5)
             self.usando_musica_real = True
-            print("Música carregada.")
+            print(f"Música MP3 carregada: {mp3_path}")
         else:
-            print(f"Aviso: {musica_path} não encontrada.")
+            print(f"Aviso: Nenhuma música encontrada.")
             self.usando_musica_real = False
 
     def pre_carregar_acordes(self):
@@ -185,17 +193,15 @@ class MusicGame:
         
         nome_completo = self.acorde_atual["chord_majmin"]
         
-        # 1. Tocar som sintetizado (feedback rápido)
+        # 1. Tocar som sintetizado (feedback rápido) - opcional
         if self.synth_enabled:
             som_synth = self.synth.gerar_acorde_curto(nome_completo, SYNTH_DURATION)
             if som_synth:
-                som_synth.set_volume(0.7)
+                som_synth.set_volume(0.5)
                 som_synth.play()
         
-        # 2. Tocar sample real da música (em canal separado, não interfere)
-        if self.real_audio_enabled:
-            start_time = self.acorde_atual.get("start", 0)
-            self.chord_sampler.tocar_sample(start_time, REAL_SAMPLE_DURATION)
+        # NOTA: Não tocamos sample separado - a música principal já contém o acorde
+        # Apenas despausamos a música e ela toca o acorde naturalmente
         
         # Atualizar score
         self.score += 100
@@ -205,7 +211,7 @@ class MusicGame:
         self.game_state = GameState.GESTURE_CORRECT
         self.transition_start_time = time.time()
         
-        # Despausar música (o sample toca em canal separado, não conflita)
+        # Despausar música - ela toca o acorde naturalmente
         if self.usando_musica_real and self.music_paused:
             pygame.mixer.music.unpause()
             self.music_paused = False
