@@ -214,8 +214,10 @@ class MusicGame:
                 som_synth.set_volume(0.5)
                 som_synth.play()
         
-        # NOTA: Não tocamos sample separado - a música principal já contém o acorde
-        # Apenas despausamos a música e ela toca o acorde naturalmente
+        # 2. Tocar sample real da música - opcional
+        if self.real_audio_enabled and self.chord_sampler.music_loaded:
+            chord_start_time = self.acorde_atual["start"]
+            self.chord_sampler.tocar_sample(chord_start_time)
         
         # Atualizar score
         self.score += 100
