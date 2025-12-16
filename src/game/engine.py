@@ -982,16 +982,6 @@ class MusicGame:
         hint_color = (100, 255, 100) if self.hint_enabled else (150, 150, 150)
         hint_text = self.font_small.render(f"[H] Dica: {hint_status}", True, hint_color)
         self.screen.blit(hint_text, (20, sidebar_y + 84))
-        
-        # Audio status - Real (removido pois não usamos sample separado)
-        # Mostrar acorde esperado com gesto
-        if self.acorde_atual and self.game_state == GameState.WAITING_FOR_GESTURE:
-            expected_gesture = self.gesture_recognizer.get_expected_gesture(
-                self.acorde_atual.get("chord_simple_pop", "")
-            )
-            expected_name = self.gesture_recognizer.get_gesture_name(expected_gesture)
-            gesture_text = self.font_small.render(f"Gesto: {expected_name}", True, (200, 200, 100))
-            self.screen.blit(gesture_text, (20, sidebar_y + 84))
 
     def _draw_particles(self):
         """Desenha partículas de feedback."""
