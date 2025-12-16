@@ -107,6 +107,7 @@ class MusicGame:
         
         # Controle de dica e preview
         self.hint_enabled = HINT_ENABLED        # Dica do próximo gesto (H para toggle)
+        self.show_expected_gesture = True       # Mostrar gesto esperado (G para toggle)
         self.preview_start_time = 0             # Quando começou o preview
         
         # Sampler de acordes reais
@@ -580,56 +581,59 @@ class MusicGame:
         chord_rect = chord_text.get_rect(center=(cx, cy - 150))
         self.screen.blit(chord_text, chord_rect)
         
-        # Instrução
-        instr = self.font_small.render("Faça o gesto:", True, (200, 200, 200))
-        instr_rect = instr.get_rect(center=(cx, cy - 80))
-        self.screen.blit(instr, instr_rect)
-        
-        # Círculo do gesto esperado
-        raio = 100
-        centro_y = cy + 30  # Centro Y do círculo
-        cor_circulo = (0, 200, 255)  # Azul
-        
-        # Se está fazendo o gesto correto, mudar cor
-        if self.last_correct_gesture:
-            progress = min(self.gesture_hold_duration / GESTURE_HOLD_TIME, 1.0)
-            cor_circulo = (
-                int(0 + 0 * progress),
-                int(200 + 55 * progress),
-                int(255 - 155 * progress)
-            )  # Transição para verde
-            
-            # Arco de progresso (centralizado, um pouco maior que o círculo)
-            raio_arco = raio + 15
-            rect_arc = pygame.Rect(
-                cx - raio_arco, 
-                centro_y - raio_arco, 
-                raio_arco * 2, 
-                raio_arco * 2
-            )
-            angulo_inicio = math.pi / 2
-            angulo_fim = angulo_inicio - (2 * math.pi * progress)
-            pygame.draw.arc(self.screen, (0, 255, 100), rect_arc, angulo_fim, angulo_inicio, 8)
-        
-        pygame.draw.circle(self.screen, cor_circulo, (cx, centro_y), raio, 5)
-        
-        # Emoji do gesto esperado (grande, no centro)
-        # Usar freetype para melhor suporte a Unicode/emojis
+        # Inicializar emoji_font se necessário
         if self.emoji_font is None:
             try:
-                # Tentar carregar fonte com suporte a emoji
                 self.emoji_font = pygame.freetype.SysFont("Segoe UI Emoji", 60)
             except:
                 self.emoji_font = pygame.freetype.SysFont("Arial", 60)
         
-        emoji_surface, emoji_rect = self.emoji_font.render(expected_emoji, (255, 255, 255))
-        emoji_rect.center = (cx, cy + 30)
-        self.screen.blit(emoji_surface, emoji_rect)
-        
-        # Nome do gesto esperado
-        gesto_name = self.font_small.render(expected_name, True, (200, 200, 200))
-        gesto_rect = gesto_name.get_rect(center=(cx, cy + 150))
-        self.screen.blit(gesto_name, gesto_rect)
+        if self.show_expected_gesture:
+            # Instrução
+            instr = self.font_small.render("Faça o gesto:", True, (200, 200, 200))
+            instr_rect = instr.get_rect(center=(cx, cy - 80))
+            self.screen.blit(instr, instr_rect)
+            
+            # Círculo do gesto esperado
+            raio = 100
+            centro_y = cy + 30  # Centro Y do círculo
+            cor_circulo = (0, 200, 255)  # Azul
+            
+            # Se está fazendo o gesto correto, mudar cor
+            if self.last_correct_gesture:
+                progress = min(self.gesture_hold_duration / GESTURE_HOLD_TIME, 1.0)
+                cor_circulo = (
+                    int(0 + 0 * progress),
+                    int(200 + 55 * progress),
+                    int(255 - 155 * progress)
+                )  # Transição para verde
+                
+                # Arco de progresso (centralizado, um pouco maior que o círculo)
+                raio_arco = raio + 15
+                rect_arc = pygame.Rect(
+                    cx - raio_arco, 
+                    centro_y - raio_arco, 
+                    raio_arco * 2, 
+                    raio_arco * 2
+                )
+                angulo_inicio = math.pi / 2
+                angulo_fim = angulo_inicio - (2 * math.pi * progress)
+                pygame.draw.arc(self.screen, (0, 255, 100), rect_arc, angulo_fim, angulo_inicio, 8)
+            
+            pygame.draw.circle(self.screen, cor_circulo, (cx, centro_y), raio, 5)
+            
+            # Emoji do gesto esperado (grande, no centro)
+            emoji_surface, emoji_rect = self.emoji_font.render(expected_emoji, (255, 255, 255))
+            emoji_rect.center = (cx, cy + 30)
+            self.screen.blit(emoji_surface, emoji_rect)
+            
+            # Nome do gesto esperado
+            gesto_name = self.font_small.render(expected_name, True, (200, 200, 200))
+            gesto_rect = gesto_name.get_rect(center=(cx, cy + 150))
+            self.screen.blit(gesto_name, gesto_rect)
+        else:
+            # Modo sem dica - mostrar painel de referência de todos os gestos no lado direito
+            self._draw_gesture_reference_panel()
         
         # Mostrar gesto detectado (canto inferior direito, layout vertical)
         if landmarks is not None and self.emoji_font:
@@ -767,6 +771,60 @@ class MusicGame:
         end = self.acorde_atual.get("end", 0)
         timing_text = self.font_tiny.render(f"⏱ {start:.2f}s → {end:.2f}s", True, (180, 180, 200))
         self.screen.blit(timing_text, (panel_x + 8, y_offset))
+
+    def _draw_gesture_reference_panel(self):
+        """Desenha um painel de referência com todos os gestos possíveis (acorde + emoji)."""
+        # Inicializar fontes se necessário
+        if self.emoji_font is None:
+            try:
+                self.emoji_font = pygame.freetype.SysFont("Segoe UI Emoji", 40)
+            except:
+                self.emoji_font = pygame.freetype.SysFont("Arial", 40)
+        
+        if not hasattr(self, 'font_tiny') or self.font_tiny is None:
+            self.font_tiny = pygame.font.SysFont("Arial", 16)
+        
+        # Coletar acordes únicos com seus gestos
+        acordes_unicos = {}
+        for chord_data in self.dados_chords:
+            chord_name = chord_data["chord_simple_pop"]
+            if chord_name not in acordes_unicos:
+                expected_gesture = self.gesture_recognizer.get_expected_gesture(chord_name)
+                emoji = self.gesture_recognizer.get_gesture_emoji(expected_gesture)
+                acordes_unicos[chord_name] = emoji
+        
+        acordes_list = list(acordes_unicos.items())
+        num_acordes = len(acordes_list)
+        
+        # Painel no lado direito
+        panel_width = 140
+        row_height = 35
+        padding = 10
+        panel_height = num_acordes * row_height + padding * 2
+        
+        panel_x = self.WIDTH - panel_width - 20
+        panel_y = 120  # Abaixo do HUD
+        
+        # Fundo do painel com transparência
+        panel_surface = pygame.Surface((panel_width, panel_height), pygame.SRCALPHA)
+        panel_surface.fill((20, 25, 40, 200))
+        pygame.draw.rect(panel_surface, (60, 80, 120), (0, 0, panel_width, panel_height), 2, border_radius=8)
+        self.screen.blit(panel_surface, (panel_x, panel_y))
+        
+        # Desenhar cada acorde + emoji (sem labels, apenas o básico)
+        y_offset = panel_y + padding
+        for chord_name, emoji in acordes_list:
+            # Nome do acorde (à esquerda)
+            chord_text = self.font_tiny.render(chord_name, True, (200, 200, 220))
+            self.screen.blit(chord_text, (panel_x + 10, y_offset + 8))
+            
+            # Emoji (à direita)
+            small_emoji_font = pygame.freetype.SysFont("Segoe UI Emoji", 22)
+            emoji_surf, emoji_rect = small_emoji_font.render(emoji, (150, 200, 255))
+            emoji_rect.midright = (panel_x + panel_width - 12, y_offset + row_height // 2)
+            self.screen.blit(emoji_surf, emoji_rect)
+            
+            y_offset += row_height
 
     def _draw_correct_screen(self, cx, cy):
         """Tela de acerto (breve transição)."""
@@ -993,6 +1051,12 @@ class MusicGame:
         hint_color = (100, 255, 100) if self.hint_enabled else (150, 150, 150)
         hint_text = self.font_small.render(f"[H] Dica: {hint_status}", True, hint_color)
         self.screen.blit(hint_text, (20, sidebar_y + 112))
+        
+        # Show expected gesture status
+        gesto_status = "ON" if self.show_expected_gesture else "OFF"
+        gesto_color = (100, 255, 100) if self.show_expected_gesture else (150, 150, 150)
+        gesto_text = self.font_small.render(f"[G] Gesto: {gesto_status}", True, gesto_color)
+        self.screen.blit(gesto_text, (20, sidebar_y + 140))
 
     def _draw_particles(self):
         """Desenha partículas de feedback."""
@@ -1063,6 +1127,11 @@ class MusicGame:
                         self.hint_enabled = not self.hint_enabled
                         status = "ATIVADO" if self.hint_enabled else "DESATIVADO"
                         print(f"Dica Próximo Gesto: {status}")
+                    elif event.key == pygame.K_g:
+                        # Toggle mostrar gesto esperado
+                        self.show_expected_gesture = not self.show_expected_gesture
+                        status = "ATIVADO" if self.show_expected_gesture else "DESATIVADO"
+                        print(f"Mostrar Gesto Esperado: {status}")
 
             # 2. Captura de vídeo
             ret, frame = self.cap.read()
