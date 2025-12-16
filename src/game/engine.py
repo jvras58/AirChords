@@ -28,12 +28,15 @@ from src.utils.config import (
     REAL_AUDIO_ENABLED,
     REAL_SAMPLE_DURATION,
     SYNTH_DURATION,
+    HINT_ENABLED,
+    PREVIEW_DURATION,
 )
 
 
 class GameState(Enum):
     """Estados do jogo."""
     INTRO = "intro"                      # Tela inicial
+    PREVIEW = "preview"                  # Preview dos acordes antes de iniciar
     WAITING_FOR_GESTURE = "waiting"      # Aguardando gesto correto
     GESTURE_CORRECT = "correct"          # Gesto correto, tocando acorde
     PLAYING = "playing"                  # Música tocando até próximo acorde
@@ -102,6 +105,10 @@ class MusicGame:
         self.synth_enabled = SYNTH_ENABLED      # Som sintetizado (S para toggle)
         self.real_audio_enabled = REAL_AUDIO_ENABLED  # Som real (R para toggle)
         
+        # Controle de dica e preview
+        self.hint_enabled = HINT_ENABLED        # Dica do próximo gesto (H para toggle)
+        self.preview_start_time = 0             # Quando começou o preview
+        
         # Sampler de acordes reais
         musica_path = os.path.join(get_assets_path(), "musica.mp3")
         self.chord_sampler = ChordSampler(musica_path, REAL_SAMPLE_DURATION)
@@ -139,7 +146,7 @@ class MusicGame:
         print(f"Acordes prontos! ({len(unique_chords)} acordes únicos)")
 
     def iniciar_jogo(self):
-        """Inicia o jogo no primeiro acorde."""
+        """Inicia o jogo com tela de preview."""
         self.acorde_index = 0
         self.score = 0
         self.acertos = 0
@@ -147,16 +154,23 @@ class MusicGame:
         
         if self.acorde_index < len(self.dados_chords):
             self.acorde_atual = self.dados_chords[self.acorde_index]
-            self.game_state = GameState.WAITING_FOR_GESTURE
-            self.waiting_start_time = time.time()  # Marcar início da espera
-            
-            # Iniciar música pausada no início
-            if self.usando_musica_real:
-                pygame.mixer.music.play()
-                pygame.mixer.music.pause()
-                self.music_paused = True
-            
-            print(f"Aguardando gesto para: {self.acorde_atual['chord_simple_pop']}")
+            # Ir para preview primeiro
+            self.game_state = GameState.PREVIEW
+            self.preview_start_time = time.time()
+            print(f"Mostrando preview dos acordes por {PREVIEW_DURATION} segundos...")
+    
+    def _iniciar_primeiro_acorde(self):
+        """Inicia o primeiro acorde após o preview."""
+        self.game_state = GameState.WAITING_FOR_GESTURE
+        self.waiting_start_time = time.time()
+        
+        # Iniciar música pausada no início
+        if self.usando_musica_real:
+            pygame.mixer.music.play()
+            pygame.mixer.music.pause()
+            self.music_paused = True
+        
+        print(f"Aguardando gesto para: {self.acorde_atual['chord_simple_pop']}")
 
     def avancar_acorde(self):
         """Avança para o próximo acorde."""
@@ -229,6 +243,12 @@ class MusicGame:
         if self.game_state == GameState.INTRO:
             # Aguardando início
             return
+        
+        elif self.game_state == GameState.PREVIEW:
+            # Tela de preview - aguardar tempo ou ESCÇO para pular
+            elapsed = time.time() - self.preview_start_time
+            if elapsed >= PREVIEW_DURATION:
+                self._iniciar_primeiro_acorde()
         
         elif self.game_state == GameState.WAITING_FOR_GESTURE:
             if self.acorde_atual is None:
@@ -336,6 +356,9 @@ class MusicGame:
         if self.game_state == GameState.INTRO:
             self._draw_intro_screen(cx, cy)
         
+        elif self.game_state == GameState.PREVIEW:
+            self._draw_preview_screen(cx, cy)
+        
         elif self.game_state == GameState.WAITING_FOR_GESTURE:
             self._draw_waiting_screen(cx, cy, landmarks)
         
@@ -412,6 +435,135 @@ class MusicGame:
         start_text = self.font_medium.render("PRESSIONE ESPAÇO PARA INICIAR", True, (0, 255, 100))
         start_rect = start_text.get_rect(center=(cx, cy + 200 + pulse))
         self.screen.blit(start_text, start_rect)
+
+    def _draw_preview_screen(self, cx, cy):
+        """Tela de preview mostrando todos os acordes e gestos da música."""
+        # Inicializar fontes se necessário
+        if self.emoji_font is None:
+            try:
+                self.emoji_font = pygame.freetype.SysFont("Segoe UI Emoji", 40)
+            except:
+                self.emoji_font = pygame.freetype.SysFont("Arial", 40)
+        
+        # Calcular tempo restante
+        elapsed = time.time() - self.preview_start_time
+        tempo_restante = max(0, PREVIEW_DURATION - elapsed)
+        progresso = elapsed / PREVIEW_DURATION
+        
+        # Subtítulo (título removido para layout mais limpo)
+        subtitle = self.font_small.render("Estude os gestos antes de jogar!", True, (200, 200, 200))
+        subtitle_rect = subtitle.get_rect(center=(cx, 80))
+        self.screen.blit(subtitle, subtitle_rect)
+        
+        # Coletar acordes únicos com seus gestos
+        acordes_unicos = {}
+        for chord_data in self.dados_chords:
+            chord_name = chord_data["chord_simple_pop"]
+            if chord_name not in acordes_unicos:
+                expected_gesture = self.gesture_recognizer.get_expected_gesture(chord_name)
+                emoji = self.gesture_recognizer.get_gesture_emoji(expected_gesture)
+                nome_gesto = self.gesture_recognizer.get_gesture_name(expected_gesture)
+                acordes_unicos[chord_name] = (emoji, nome_gesto)
+        
+        # Desenhar lista de acordes em grid
+        acordes_list = list(acordes_unicos.items())
+        num_acordes = len(acordes_list)
+        
+        # Layout: máximo 3 colunas
+        max_cols = 3
+        cols = min(max_cols, num_acordes)
+        rows = (num_acordes + cols - 1) // cols
+        
+        # Dimensões do card (aumentadas para caber o texto)
+        card_width = 280
+        card_height = 90
+        spacing_x = 25
+        spacing_y = 12
+        
+        # Calcular posição inicial (movida mais para baixo)
+        total_width = cols * card_width + (cols - 1) * spacing_x
+        start_x = cx - total_width // 2
+        start_y = 180
+        
+        # Área de scroll se necessário
+        max_visible_rows = 5
+        if rows > max_visible_rows:
+            # Scroll baseado no tempo
+            scroll_offset = int((elapsed * 0.5) % (rows - max_visible_rows + 1))
+        else:
+            scroll_offset = 0
+        
+        # Desenhar cada acorde
+        for idx, (chord_name, (emoji, nome_gesto)) in enumerate(acordes_list):
+            row = idx // cols
+            col = idx % cols
+            
+            # Verificar se está visível
+            if rows > max_visible_rows:
+                if row < scroll_offset or row >= scroll_offset + max_visible_rows:
+                    continue
+                row = row - scroll_offset
+            
+            x = start_x + col * (card_width + spacing_x)
+            y = start_y + row * (card_height + spacing_y)
+            
+            # Fundo do card
+            card_surface = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
+            card_surface.fill((30, 40, 60, 200))
+            pygame.draw.rect(card_surface, (80, 100, 140), (0, 0, card_width, card_height), 2, border_radius=8)
+            self.screen.blit(card_surface, (x, y))
+            
+            # Nome do acorde
+            chord_text = self.font_medium.render(chord_name, True, (255, 255, 255))
+            chord_rect = chord_text.get_rect(midleft=(x + 15, y + card_height // 2))
+            self.screen.blit(chord_text, chord_rect)
+            
+            # Emoji do gesto
+            emoji_surf, emoji_rect = self.emoji_font.render(emoji, (150, 200, 255))
+            emoji_rect.midright = (x + card_width - 60, y + card_height // 2)
+            self.screen.blit(emoji_surf, emoji_rect)
+            
+            # Nome do gesto
+            gesto_text = self.font_small.render(nome_gesto, True, (150, 180, 200))
+            gesto_rect = gesto_text.get_rect(midleft=(x + card_width - 55, y + card_height // 2))
+            # Truncar se muito grande
+            if gesto_rect.right > x + card_width - 5:
+                gesto_text = self.font_small.render(nome_gesto[:8] + "..", True, (150, 180, 200))
+                gesto_rect = gesto_text.get_rect(midleft=(x + card_width - 55, y + card_height // 2))
+            self.screen.blit(gesto_text, gesto_rect)
+        
+        # Contador de acordes
+        total_text = self.font_small.render(
+            f"Total: {len(self.dados_chords)} acordes ({num_acordes} únicos)", 
+            True, (150, 150, 180)
+        )
+        total_rect = total_text.get_rect(center=(cx, self.HEIGHT - 130))
+        self.screen.blit(total_text, total_rect)
+        
+        # Barra de progresso
+        bar_width = 500
+        bar_height = 20
+        bar_x = cx - bar_width // 2
+        bar_y = self.HEIGHT - 90
+        
+        # Fundo da barra
+        pygame.draw.rect(self.screen, (50, 50, 70), (bar_x, bar_y, bar_width, bar_height), border_radius=10)
+        # Progresso
+        fill_width = int(bar_width * progresso)
+        if fill_width > 0:
+            pygame.draw.rect(self.screen, (0, 200, 255), (bar_x, bar_y, fill_width, bar_height), border_radius=10)
+        # Borda
+        pygame.draw.rect(self.screen, (100, 150, 200), (bar_x, bar_y, bar_width, bar_height), 2, border_radius=10)
+        
+        # Tempo restante
+        tempo_text = self.font_medium.render(f"Iniciando em {tempo_restante:.1f}s", True, (255, 255, 255))
+        tempo_rect = tempo_text.get_rect(center=(cx, self.HEIGHT - 50))
+        self.screen.blit(tempo_text, tempo_rect)
+        
+        # Dica para pular
+        pular_text = self.font_small.render("Pressione ESPAÇO para pular", True, (100, 150, 100))
+        pular_rect = pular_text.get_rect(center=(cx, self.HEIGHT - 20))
+        self.screen.blit(pular_text, pular_rect)
 
     def _draw_waiting_screen(self, cx, cy, landmarks):
         """Tela de espera pelo gesto correto."""
@@ -680,8 +832,8 @@ class MusicGame:
             pygame.draw.rect(self.screen, (0, 255, 100), (bar_x, bar_y, int(bar_width * progress), bar_height))
             pygame.draw.rect(self.screen, (255, 255, 255), (bar_x, bar_y, bar_width, bar_height), 2)
         
-        # Próximo acorde (preview)
-        if self.acorde_index + 1 < len(self.dados_chords):
+        # Próximo acorde (preview) - apenas se hint habilitado
+        if self.hint_enabled and self.acorde_index + 1 < len(self.dados_chords):
             next_chord = self.dados_chords[self.acorde_index + 1]
             next_name = next_chord["chord_simple_pop"]
             next_gesture = self.gesture_recognizer.get_expected_gesture(next_name)
@@ -834,6 +986,12 @@ class MusicGame:
         synth_text = self.font_small.render(f"[S] Synth: {synth_status}", True, synth_color)
         self.screen.blit(synth_text, (20, sidebar_y + 56))
         
+        # Hint status (dica do próximo gesto)
+        hint_status = "ON" if self.hint_enabled else "OFF"
+        hint_color = (100, 255, 100) if self.hint_enabled else (150, 150, 150)
+        hint_text = self.font_small.render(f"[H] Dica: {hint_status}", True, hint_color)
+        self.screen.blit(hint_text, (20, sidebar_y + 84))
+        
         # Audio status - Real (removido pois não usamos sample separado)
         # Mostrar acorde esperado com gesto
         if self.acorde_atual and self.game_state == GameState.WAITING_FOR_GESTURE:
@@ -882,6 +1040,9 @@ class MusicGame:
                     elif event.key == pygame.K_SPACE:
                         if self.game_state == GameState.INTRO:
                             self.iniciar_jogo()
+                        elif self.game_state == GameState.PREVIEW:
+                            # Pular preview e ir direto para o jogo
+                            self._iniciar_primeiro_acorde()
                         elif self.game_state == GameState.FINISHED:
                             self.game_state = GameState.INTRO
                     elif event.key == pygame.K_m:
@@ -905,6 +1066,11 @@ class MusicGame:
                         self.real_audio_enabled = not self.real_audio_enabled
                         status = "ATIVADO" if self.real_audio_enabled else "DESATIVADO"
                         print(f"Som Real: {status}")
+                    elif event.key == pygame.K_h:
+                        # Toggle dica do próximo gesto
+                        self.hint_enabled = not self.hint_enabled
+                        status = "ATIVADO" if self.hint_enabled else "DESATIVADO"
+                        print(f"Dica Próximo Gesto: {status}")
 
             # 2. Captura de vídeo
             ret, frame = self.cap.read()
