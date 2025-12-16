@@ -229,6 +229,9 @@ class MusicGame:
         
         # Despausar música - ela toca o acorde naturalmente
         if self.usando_musica_real and self.music_paused:
+            # Parar sample para evitar duplicação (música principal assume)
+            if self.chord_sampler.is_playing:
+                self.chord_sampler.parar_sample()
             pygame.mixer.music.unpause()
             self.music_paused = False
 
