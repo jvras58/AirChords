@@ -63,6 +63,7 @@ uv run main.py
 | `ESPAÇO` | Iniciar jogo / Reiniciar após fim |
 | `M` | Toggle Fail Mode (liga/desliga penalidade por tempo) |
 | `H` | Toggle Dica (liga/desliga mostrar próximo gesto) |
+| `G` | Toggle Gesto (liga/desliga mostrar gesto esperado) |
 | `S` | Toggle Synth (liga/desliga som sintetizado) |
 | `R` | Toggle Real Audio (liga/desliga sample da música) |
 | `T` | Trocar Timbre do sintetizador |
