@@ -30,6 +30,8 @@ from src.utils.config import (
     SYNTH_DURATION,
     HINT_ENABLED,
     PREVIEW_DURATION,
+    CONTINUOUS_FLOW_MODE,
+    CONTINUOUS_FLOW_HOLD_TIME,
 )
 
 
@@ -110,6 +112,9 @@ class MusicGame:
         self.show_expected_gesture = True       # Mostrar gesto esperado (G para toggle)
         self.preview_start_time = 0             # Quando começou o preview
         
+        # Controle de fluxo contínuo (música não pausa ao esperar gestos)
+        self.continuous_flow_mode = CONTINUOUS_FLOW_MODE  # F para toggle
+        
         # Sampler de acordes reais
         musica_path = os.path.join(get_assets_path(), "musica.mp3")
         self.chord_sampler = ChordSampler(musica_path, REAL_SAMPLE_DURATION)
@@ -165,13 +170,19 @@ class MusicGame:
         self.game_state = GameState.WAITING_FOR_GESTURE
         self.waiting_start_time = time.time()
         
-        # Iniciar música pausada no início
+        # Iniciar música - pausada ou não dependendo do modo de fluxo contínuo
         if self.usando_musica_real:
             pygame.mixer.music.play()
-            pygame.mixer.music.pause()
-            self.music_paused = True
+            if not self.continuous_flow_mode:
+                # Modo normal: pausar e esperar gesto
+                pygame.mixer.music.pause()
+                self.music_paused = True
+            else:
+                # Modo fluxo contínuo: música continua tocando
+                self.music_paused = False
         
-        print(f"Aguardando gesto para: {self.acorde_atual['chord_simple_pop']}")
+        mode_str = "[CONTÍNUO]" if self.continuous_flow_mode else "[PAUSA]"
+        print(f"{mode_str} Aguardando gesto para: {self.acorde_atual['chord_simple_pop']}")
 
     def avancar_acorde(self):
         """Avança para o próximo acorde."""
@@ -189,8 +200,8 @@ class MusicGame:
         self.game_state = GameState.WAITING_FOR_GESTURE
         self.waiting_start_time = time.time()  # Marcar início da espera
         
-        # Pausar música no início do novo acorde
-        if self.usando_musica_real:
+        # Pausar música no início do novo acorde (apenas se não estiver em modo contínuo)
+        if self.usando_musica_real and not self.continuous_flow_mode:
             pygame.mixer.music.pause()
             self.music_paused = True
         
@@ -284,8 +295,11 @@ class MusicGame:
                 # Calcular quanto tempo está segurando
                 self.gesture_hold_duration = time.time() - self.gesture_start_time
                 
+                # Usar tempo de hold apropriado (reduzido em modo contínuo)
+                hold_time_required = CONTINUOUS_FLOW_HOLD_TIME if self.continuous_flow_mode else GESTURE_HOLD_TIME
+                
                 # Se segurou tempo suficiente, aceitar
-                if self.gesture_hold_duration >= GESTURE_HOLD_TIME:
+                if self.gesture_hold_duration >= hold_time_required:
                     self.tocar_acorde_e_avancar()
             else:
                 # Gesto incorreto, resetar
@@ -601,7 +615,8 @@ class MusicGame:
             
             # Se está fazendo o gesto correto, mudar cor
             if self.last_correct_gesture:
-                progress = min(self.gesture_hold_duration / GESTURE_HOLD_TIME, 1.0)
+                hold_time_required = CONTINUOUS_FLOW_HOLD_TIME if self.continuous_flow_mode else GESTURE_HOLD_TIME
+                progress = min(self.gesture_hold_duration / hold_time_required, 1.0)
                 cor_circulo = (
                     int(0 + 0 * progress),
                     int(200 + 55 * progress),
@@ -1057,6 +1072,12 @@ class MusicGame:
         gesto_color = (100, 255, 100) if self.show_expected_gesture else (150, 150, 150)
         gesto_text = self.font_small.render(f"[G] Gesto: {gesto_status}", True, gesto_color)
         self.screen.blit(gesto_text, (20, sidebar_y + 140))
+        
+        # Continuous flow mode status (música não pausa)
+        flow_status = "ON" if self.continuous_flow_mode else "OFF"
+        flow_color = (255, 200, 50) if self.continuous_flow_mode else (150, 150, 150)  # Amarelo quando ativo
+        flow_text = self.font_small.render(f"[F] Fluxo: {flow_status}", True, flow_color)
+        self.screen.blit(flow_text, (20, sidebar_y + 168))
 
     def _draw_particles(self):
         """Desenha partículas de feedback."""
@@ -1132,6 +1153,15 @@ class MusicGame:
                         self.show_expected_gesture = not self.show_expected_gesture
                         status = "ATIVADO" if self.show_expected_gesture else "DESATIVADO"
                         print(f"Mostrar Gesto Esperado: {status}")
+                    elif event.key == pygame.K_f:
+                        # Toggle modo de fluxo contínuo (música não pausa)
+                        self.continuous_flow_mode = not self.continuous_flow_mode
+                        status = "ATIVADO" if self.continuous_flow_mode else "DESATIVADO"
+                        print(f"Modo Fluxo Contínuo: {status}")
+                        # Se ativou o modo contínuo durante o jogo, despausar música
+                        if self.continuous_flow_mode and self.music_paused and self.usando_musica_real:
+                            pygame.mixer.music.unpause()
+                            self.music_paused = False
 
             # 2. Captura de vídeo
             ret, frame = self.cap.read()

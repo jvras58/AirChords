@@ -108,3 +108,9 @@ SYNTH_DURATION = 0.3           # Duração do som sintetizado curto
 # --- CONFIGURAÇÕES DE PREVIEW E DICAS ---
 HINT_ENABLED = True            # Mostrar dica do próximo gesto (H para toggle)
 PREVIEW_DURATION = 15.0        # Duração da tela de preview em segundos
+
+# --- CONFIGURAÇÕES DE FLUXO CONTÍNUO ---
+CONTINUOUS_FLOW_MODE = False   # Modo de fluxo contínuo (F para toggle)
+                               # Quando ativo, a música NÃO pausa enquanto espera o gesto
+                               # A detecção é mais rápida e fluida
+CONTINUOUS_FLOW_HOLD_TIME = 0.1  # Tempo de hold reduzido para modo contínuo (segundos)

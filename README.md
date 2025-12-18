@@ -64,6 +64,7 @@ uv run main.py
 | `M` | Toggle Fail Mode (liga/desliga penalidade por tempo) |
 | `H` | Toggle Dica (liga/desliga mostrar próximo gesto) |
 | `G` | Toggle Gesto (liga/desliga mostrar gesto esperado) |
+| `F` | Toggle Fluxo Contínuo (música não pausa entre acordes) |
 | `S` | Toggle Synth (liga/desliga som sintetizado) |
 | `R` | Toggle Real Audio (liga/desliga sample da música) |
 | `T` | Trocar Timbre do sintetizador |
@@ -100,6 +101,16 @@ O jogo oferece **duas camadas de áudio** independentes:
 - Por padrão, **ambos estão ativos**
 - O sample real requer `musica.wav` no diretório assets (converta o MP3 se necessário)
 - O HUD mostra o status atual: `[S] Synth: ON/OFF` e `[R] Real: ON/OFF`
+
+### 10. Modo de Fluxo Contínuo
+
+Por padrão, a música **pausa** a cada acorde, esperando o gesto correto. Se preferir uma experiência mais fluida:
+
+- Pressione **F** para ativar o **Modo de Fluxo Contínuo**
+- A música **continua tocando** sem pausar entre os acordes
+- A detecção de gestos fica mais rápida (0.1s ao invés de 0.3s)
+- Ótimo para jogadores experientes que querem um desafio maior!
+- O HUD mostra o status: `[F] Fluxo: ON/OFF` (amarelo quando ativo)
 
 ---
 
@@ -179,6 +190,10 @@ CHORD_GESTURE_MAP = {
 ```python
 GESTURE_TOLERANCE = 0.7   # Confiança mínima (0.0-1.0)
 GESTURE_HOLD_TIME = 0.3   # Tempo para confirmar gesto (segundos)
+
+# Modo de Fluxo Contínuo (música não pausa)
+CONTINUOUS_FLOW_MODE = False       # Ativar por padrão (F para toggle)
+CONTINUOUS_FLOW_HOLD_TIME = 0.1    # Tempo de hold no modo contínuo
 ```
 
 ---
